@@ -5,12 +5,13 @@ from langchain_core.output_parsers import StrOutputParser
 
 
 def build_conversational_rag_chain(retriever, model_name: str = "llama3.2:latest"):
-    # Pass headers to bypass ngrok free tier browser warning
+    """
+    Builds conversational RAG chain routed via ngrok to local Mac Ollama.
+    """
     llm = Ollama(
         base_url="https://embody-monotype-attribute.ngrok-free.dev",
         model=model_name,
-        temperature=0.0,
-        headers={"ngrok-skip-browser-warning": "true"}
+        temperature=0.0
     )
 
     contextualize_q_system_prompt = (

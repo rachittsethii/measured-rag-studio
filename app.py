@@ -1,357 +1,81 @@
 import os
-import json
 import streamlit as st
-from src.loader import load_and_chunk_docs
-from src.retriever import build_retrievers
-from src.evaluate import evaluate_retrieval
+from src.loader import load_and_chunk_documents
+from src.retriever import build_hybrid_retriever
+from src.evaluate import run_benchmark_evaluation
 from src.chain import build_conversational_rag_chain
 
-st.set_page_config(
-    page_title="RAG Evaluation & Intelligence Studio",
-    page_icon="⚡",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+st.set_page_config(page_title="RAG Intelligence Studio", layout="wide")
 
-# ---------------------------------------------------------
-# PROFESSIONAL FRONTEND CSS INJECTION (Tailwind-like Dark Theme)
-# ---------------------------------------------------------
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+st.title("RAG Intelligence Studio")
+st.caption("Deterministic document search & benchmarked RRF ensemble powered by Ollama")
 
-    /* Global Body styling */
-    html, body, [class*="css"] {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
-    }
-    
-    .stApp {
-        background: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #0f172a 60%, #020617 100%);
-        color: #f8fafc;
-    }
-
-    /* Hide default Streamlit chrome */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-
-    /* Sidebar Glassmorphism Styling */
-    section[data-testid="stSidebar"] {
-        background: rgba(15, 23, 42, 0.75) !important;
-        backdrop-filter: blur(16px) saturate(180%);
-        -webkit-backdrop-filter: blur(16px) saturate(180%);
-        border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
-    }
-
-    /* Custom Header Banner */
-    .hero-container {
-        padding: 24px 0 16px 0;
-        margin-bottom: 24px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    .hero-title {
-        font-size: 2.5rem;
-        font-weight: 800;
-        letter-spacing: -0.02em;
-        background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 50%, #f472b6 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 6px;
-    }
-
-    .hero-subtitle {
-        color: #94a3b8;
-        font-size: 1rem;
-        font-weight: 400;
-    }
-
-    .status-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 4px 12px;
-        border-radius: 9999px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-        background: rgba(34, 197, 94, 0.1);
-        color: #4ade80;
-        border: 1px solid rgba(34, 197, 94, 0.2);
-    }
-
-    .status-dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background-color: #22c55e;
-        box-shadow: 0 0 8px #22c55e;
-    }
-
-    /* Metrics Dashboard Glass Cards */
-    .card-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 16px;
-        margin-bottom: 24px;
-    }
-
-    .stat-card {
-        background: rgba(30, 41, 59, 0.4);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 16px;
-        padding: 20px;
-        box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
-        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .stat-card:hover {
-        transform: translateY(-4px);
-        border-color: rgba(167, 139, 250, 0.4);
-        box-shadow: 0 20px 35px -10px rgba(124, 58, 237, 0.25);
-    }
-
-    .stat-label {
-        font-size: 0.75rem;
-        font-weight: 700;
-        color: #64748b;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-    }
-
-    .stat-value {
-        font-size: 2.25rem;
-        font-weight: 800;
-        color: #f8fafc;
-        margin-top: 4px;
-        font-family: 'JetBrains Mono', monospace;
-    }
-
-    .stat-accent {
-        color: #a78bfa;
-    }
-
-    /* Custom Chat Message Containers */
-    .stChatMessage {
-        background: rgba(30, 41, 59, 0.3) !important;
-        border: 1px solid rgba(255, 255, 255, 0.06) !important;
-        border-radius: 16px !important;
-        padding: 18px !important;
-        margin-bottom: 16px !important;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.15) !important;
-    }
-
-    /* Custom Input Controls & Buttons */
-    div.stButton > button {
-        width: 100%;
-        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%) !important;
-        color: #ffffff !important;
-        border: none !important;
-        border-radius: 10px !important;
-        padding: 12px 20px !important;
-        font-weight: 600 !important;
-        letter-spacing: 0.01em !important;
-        box-shadow: 0 4px 14px 0 rgba(99, 102, 241, 0.4) !important;
-        transition: all 0.2s ease !important;
-    }
-
-    div.stButton > button:hover {
-        transform: translateY(-1px) !important;
-        box-shadow: 0 6px 20px 0 rgba(139, 92, 246, 0.6) !important;
-    }
-
-    /* Tabs Bar Styling */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background: rgba(15, 23, 42, 0.5);
-        padding: 6px;
-        border-radius: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    .stTabs [data-baseweb="tab"] {
-        height: 42px;
-        border-radius: 8px;
-        color: #94a3b8;
-        font-weight: 600;
-        border: none !important;
-    }
-
-    .stTabs [aria-selected="true"] {
-        background: rgba(99, 102, 241, 0.2) !important;
-        color: #818cf8 !important;
-        border: 1px solid rgba(129, 140, 248, 0.3) !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# ---------------------------------------------------------
-# BACKEND PATHS & SESSION INITIALIZATION
-# ---------------------------------------------------------
-RAW_DOCS_DIR = "data/raw_documents"
-GROUND_TRUTH_FILE = "data/ground_truth.json"
-os.makedirs(RAW_DOCS_DIR, exist_ok=True)
-
-if "chat_history" not in st.session_state:
-    st.session_state["chat_history"] = []
-
-@st.cache_resource(show_spinner=False)
-def get_cached_retrievers(doc_dir: str, k: int):
-    chunks = load_and_chunk_docs(doc_dir=doc_dir)
-    dense, hybrid = build_retrievers(chunks, k=k)
-    return chunks, dense, hybrid
-
-# ---------------------------------------------------------
-# SIDEBAR CONTROL PANEL
-# ---------------------------------------------------------
+# Sidebar Configuration
 with st.sidebar:
-    st.markdown("### ⚙️ Pipeline Configuration")
-    st.caption("Manage document corpus & hybrid search parameters.")
-    st.divider()
-
-    uploaded_files = st.file_uploader(
-        "Upload PDF Documents",
-        type=["pdf"],
-        accept_multiple_files=True
-    )
-
-    if uploaded_files:
-        for file in uploaded_files:
-            file_path = os.path.join(RAW_DOCS_DIR, file.name)
-            with open(file_path, "wb") as f:
-                f.write(file.getbuffer())
-        st.success(f"Uploaded {len(uploaded_files)} PDF(s).")
-        st.cache_resource.clear()
-
-    existing_files = os.listdir(RAW_DOCS_DIR)
-    st.markdown("#### 📄 Document Corpus")
-    if existing_files:
-        for fname in existing_files:
-            st.markdown(f"• `{fname}`")
-    else:
-        st.info("No documents found in storage.")
-
-    st.divider()
-    k_val = st.slider("Top-k Depth", min_value=2, max_value=12, value=8, step=1)
-
+    st.header("Pipeline Configuration")
+    
+    pdf_files = [
+        "data/raw_documents/google_privacy_policy_en.pdf",
+        "data/raw_documents/Presentation - CSCRF.pdf",
+        "data/raw_documents/Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf"
+    ]
+    
+    top_k = st.slider("Top-k Depth", min_value=5, max_value=25, value=15)
+    
     if st.button("⚡ Build Vector & BM25 Index"):
-        with st.spinner("Processing embeddings & constructing hybrid indices..."):
-            try:
-                chunks, dense, hybrid = get_cached_retrievers(doc_dir=RAW_DOCS_DIR, k=k_val)
-                rag_chain = build_conversational_rag_chain(hybrid)
+        with st.spinner("Processing documents & building hybrid index..."):
+            docs = load_and_chunk_documents(pdf_files)
+            st.session_state.ensemble_retriever = build_hybrid_retriever(docs, top_k=top_k)
+            st.session_state.faiss_retriever = st.session_state.ensemble_retriever.retrievers[0]
+            st.session_state.rag_chain = build_conversational_rag_chain(st.session_state.ensemble_retriever)
+            st.success("Index Built Successfully!")
 
-                st.session_state["chunks"] = chunks
-                st.session_state["dense_retriever"] = dense
-                st.session_state["hybrid_retriever"] = hybrid
-                st.session_state["rag_chain"] = rag_chain
-                st.session_state["indexed"] = True
-                st.success("Indexing Complete!")
-            except Exception as e:
-                st.error(f"Indexing Error: {e}")
-
-# ---------------------------------------------------------
-# MAIN DASHBOARD HERO SECTION
-# ---------------------------------------------------------
-st.markdown('''
-<div class="hero-container">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-        <div>
-            <div class="hero-title">RAG Intelligence Studio</div>
-            <div class="hero-subtitle">Deterministic document search & benchmarked RRF ensemble powered by Ollama</div>
-        </div>
-        <div>
-            <span class="status-badge"><span class="status-dot"></span> System Operational</span>
-        </div>
-    </div>
-</div>
-''', unsafe_allow_html=True)
-
+# Workspace Tabs
 tab1, tab2 = st.tabs(["💬 Conversational Workspace", "📊 Retrieval Benchmark & Analytics"])
 
-# ---------------------------------------------------------
-# TAB 1: CONVERSATIONAL QA INTERFACE
-# ---------------------------------------------------------
 with tab1:
-    for message in st.session_state["chat_history"]:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+
+    for msg in st.session_state.messages:
+        st.chat_message(msg["role"]).write(msg["content"])
 
     if user_query := st.chat_input("Ask a question about your indexed documents..."):
-        if not st.session_state.get("indexed", False):
-            st.warning("Please index your documents using the sidebar control panel first.")
+        st.session_state.messages.append({"role": "user", "content": user_query})
+        st.chat_message("user").write(user_query)
+
+        if "rag_chain" in st.session_state:
+            try:
+                response = st.session_state.rag_chain.invoke({
+                    "input": user_query,
+                    "chat_history": []
+                })
+                st.session_state.messages.append({"role": "assistant", "content": response})
+                st.chat_message("assistant").write(response)
+            except Exception as e:
+                st.error(f"Execution Error: {e}")
         else:
-            st.chat_message("user").markdown(user_query)
+            st.warning("Please build the vector & BM25 index first from the sidebar.")
 
-            formatted_history = []
-            for msg in st.session_state["chat_history"]:
-                role = "human" if msg["role"] == "user" else "ai"
-                formatted_history.append((role, msg["content"]))
-
-            with st.spinner("Retrieving relevant context & reasoning..."):
-                try:
-                    chain = st.session_state["rag_chain"]
-                    response = chain.invoke({
-                        "input": user_query,
-                        "chat_history": formatted_history
-                    })
-
-                    with st.chat_message("assistant"):
-                        st.markdown(response)
-
-                    st.session_state["chat_history"].append({"role": "user", "content": user_query})
-                    st.session_state["chat_history"].append({"role": "assistant", "content": response})
-
-                except Exception as e:
-                    st.error(f"Execution Error: {e}")
-
-# ---------------------------------------------------------
-# TAB 2: METRICS & BENCHMARK DASHBOARD
-# ---------------------------------------------------------
 with tab2:
-    st.markdown("### 📊 Quantitative Retrieval Benchmarks")
-    st.caption("Compare Dense Vector Search (FAISS) against Hybrid Ensemble Search (Dense + BM25) across all 30 ground-truth evaluation questions.")
-
+    st.subheader("Quantitative Retrieval Benchmarks")
+    st.caption("Compare Dense Vector Search (FAISS) against Hybrid Ensemble Search across all ground-truth questions.")
+    
     if st.button("Run Evaluation Benchmark"):
-        if not st.session_state.get("indexed", False):
-            st.warning("Please index your documents using the sidebar control panel first.")
+        if "ensemble_retriever" in st.session_state:
+            with st.spinner("Running 30-question evaluation grid..."):
+                results = run_benchmark_evaluation(
+                    st.session_state.ensemble_retriever,
+                    st.session_state.faiss_retriever,
+                    questions_json_path="data/ground_truth.json"
+                )
+                
+                col1, col2, col3, col4 = st.columns(4)
+                col1.metric("DENSE HIT RATE", f"{results['dense_hit_rate']*100:.2f}%")
+                col2.metric("DENSE MRR", f"{results['dense_mrr']:.3f}")
+                col3.metric("HYBRID HIT RATE", f"{results['hybrid_hit_rate']*100:.2f}%")
+                col4.metric("HYBRID MRR", f"{results['hybrid_mrr']:.3f}")
+                
+                st.success("Benchmark completed across 30 questions! Detailed log exported to results.json.")
         else:
-            with st.spinner("Evaluating retrieval pipelines across 30 test queries..."):
-                try:
-                    dense = st.session_state["dense_retriever"]
-                    hybrid = st.session_state["hybrid_retriever"]
-
-                    # Run evaluations against data/ground_truth.json
-                    dense_res = evaluate_retrieval(dense, ground_truth_file=GROUND_TRUTH_FILE, k=k_val)
-                    hybrid_res = evaluate_retrieval(hybrid, ground_truth_file=GROUND_TRUTH_FILE, k=k_val, output_file="results.json")
-
-                    # High-End Metric Display Grid
-                    st.markdown(f'''
-                    <div class="card-grid">
-                        <div class="stat-card">
-                            <div class="stat-label">Dense Hit Rate@{k_val}</div>
-                            <div class="stat-value">{dense_res["hit_rate_at_k"]}%</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-label">Dense MRR@{k_val}</div>
-                            <div class="stat-value">{dense_res["mrr_at_k"]}</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-label">Hybrid Hit Rate@{k_val}</div>
-                            <div class="stat-value stat-accent">{hybrid_res["hit_rate_at_k"]}%</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-label">Hybrid MRR@{k_val}</div>
-                            <div class="stat-value stat-accent">{hybrid_res["mrr_at_k"]}</div>
-                        </div>
-                    </div>
-                    ''', unsafe_allow_html=True)
-
-                    st.success(f"Benchmark completed across {hybrid_res['total_queries']} questions! Detailed log exported to results.json.")
-
-                    with st.expander(f"🔎 View All {hybrid_res['total_queries']} Question Results"):
-                        st.json(hybrid_res["details"])
-
-                except Exception as e:
-                    st.error(f"Error executing benchmark: {e}")
+            st.warning("Please build the vector & BM25 index first.")

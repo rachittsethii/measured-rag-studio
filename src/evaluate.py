@@ -1,75 +1,83 @@
 import json
-import os
+import re
 from typing import List, Dict, Any
 
-def evaluate_retrieval(
-    retriever: Any,
-    ground_truth_file: str = "data/ground_truth.json",
-    k: int = 8,
-    output_file: str = None
-) -> Dict[str, Any]:
-    if not os.path.exists(ground_truth_file):
-        raise FileNotFoundError(f"Ground truth file not found at {ground_truth_file}")
 
-    with open(ground_truth_file, "r", encoding="utf-8") as f:
-        ground_truth = json.load(f)
+def normalize_text(text: str) -> str:
+    """Removes special characters, extra whitespaces, and converts to lowercase."""
+    text = text.lower()
+    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r'[^\w\s]', '', text)
+    return text.strip()
 
-    hits = 0
-    mrr_sum = 0.0
-    details = []
 
-    for item in ground_truth:
-        query = item["question"]
-        target_doc = item.get("expected_doc", "").lower()
-        target_page = item.get("expected_page", None)
-        target_chunk_id = item.get("expected_chunk_id", None)
-
-        retrieved_docs = retriever.invoke(query)[:k]
+def calculate_metrics(retrieved_docs: List[Any], ground_truth_text: str) -> tuple[float, float]:
+    """
+    Calculates Hit Rate and Reciprocal Rank (MRR) using normalized substring matching.
+    """
+    norm_gt = normalize_text(ground_truth_text)
+    
+    hit = 0.0
+    reciprocal_rank = 0.0
+    
+    for rank, doc in enumerate(retrieved_docs, start=1):
+        norm_doc = normalize_text(doc.page_content)
         
-        hit_found = False
-        rank_found = 0
+        # Match if key ground truth exists inside chunk or vice versa
+        if norm_gt in norm_doc or norm_doc in norm_gt:
+            hit = 1.0
+            reciprocal_rank = 1.0 / rank
+            break
+            
+    return hit, reciprocal_rank
 
-        for rank, doc in enumerate(retrieved_docs, start=1):
-            doc_source = str(doc.metadata.get("source", "")).lower()
-            doc_page = doc.metadata.get("page", None)
-            chunk_id = doc.metadata.get("chunk_id", "")
 
-            # Flexible evaluation logic: exact chunk ID match OR document + page match
-            is_page_match = (target_doc in doc_source) and (target_page is not None and doc_page == target_page)
-            is_chunk_match = (target_chunk_id is not None and chunk_id == target_chunk_id)
-
-            if is_chunk_match or is_page_match:
-                hit_found = True
-                rank_found = rank
-                break
-
-        if hit_found:
-            hits += 1
-            mrr_sum += 1.0 / rank_found
-
-        details.append({
-            "question": query,
-            "hit": hit_found,
-            "rank": rank_found if hit_found else None,
-            "retrieved_sources": [
-                f"{os.path.basename(doc.metadata.get('source', ''))}_p{doc.metadata.get('page', '')}" 
-                for doc in retrieved_docs
-            ]
+def run_benchmark_evaluation(ensemble_retriever, faiss_retriever, questions_json_path: str = "data/ground_truth.json") -> Dict[str, Any]:
+    """
+    Runs evaluation benchmark across all 30 ground-truth questions.
+    """
+    with open(questions_json_path, 'r') as f:
+        ground_truth_data = json.load(f)
+        
+    dense_hits, hybrid_hits = [], []
+    dense_mrrs, hybrid_mrrs = [], []
+    detailed_logs = []
+    
+    for item in ground_truth_data:
+        question = item["question"]
+        gt_context = item["ground_truth_context"]
+        
+        # 1. Evaluate Dense FAISS
+        dense_docs = faiss_retriever.get_relevant_documents(question)
+        d_hit, d_mrr = calculate_metrics(dense_docs, gt_context)
+        dense_hits.append(d_hit)
+        dense_mrrs.append(d_mrr)
+        
+        # 2. Evaluate Hybrid Ensemble
+        hybrid_docs = ensemble_retriever.get_relevant_documents(question)
+        h_hit, h_mrr = calculate_metrics(hybrid_docs, gt_context)
+        hybrid_hits.append(h_hit)
+        hybrid_mrrs.append(h_mrr)
+        
+        detailed_logs.append({
+            "question": question,
+            "dense_hit": bool(d_hit),
+            "hybrid_hit": bool(h_hit),
+            "dense_mrr": d_mrr,
+            "hybrid_mrr": h_mrr
         })
-
-    total_queries = len(ground_truth)
-    hit_rate = round((hits / total_queries) * 100, 2) if total_queries > 0 else 0.0
-    mrr = round(mrr_sum / total_queries, 3) if total_queries > 0 else 0.0
-
-    summary = {
-        "total_queries": total_queries,
-        "hit_rate_at_k": hit_rate,
-        "mrr_at_k": mrr,
-        "details": details
+        
+    summary_results = {
+        "dense_hit_rate": sum(dense_hits) / len(dense_hits),
+        "hybrid_hit_rate": sum(hybrid_hits) / len(hybrid_hits),
+        "dense_mrr": sum(dense_mrrs) / len(dense_mrrs),
+        "hybrid_mrr": sum(hybrid_mrrs) / len(hybrid_mrrs),
+        "total_questions": len(ground_truth_data),
+        "logs": detailed_logs
     }
-
-    if output_file:
-        with open(output_file, "w", encoding="utf-8") as f:
-            json.dump(summary, f, indent=2)
-
-    return summary
+    
+    # Save benchmark logs
+    with open("results.json", "w") as f:
+        json.dump(summary_results, f, indent=4)
+        
+    return summary_results
