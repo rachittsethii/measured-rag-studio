@@ -5,18 +5,14 @@ from langchain_core.output_parsers import StrOutputParser
 
 
 def build_conversational_rag_chain(retriever, model_name: str = "llama3.2:latest"):
-    """
-    Builds a RAG chain with chat history awareness and hybrid retrieval.
-    Routes requests through active ngrok tunnel to local Mac Ollama instance.
-    """
+    # Pass headers to bypass ngrok free tier browser warning
     llm = Ollama(
         base_url="https://embody-monotype-attribute.ngrok-free.dev",
         model=model_name,
         temperature=0.0,
-        headers={"ngrok-skip-browser-warning": "true"}  # Bypasses ngrok 403 warning page
+        headers={"ngrok-skip-browser-warning": "true"}
     )
 
-    # Prompt to rephrase follow-up questions using chat history
     contextualize_q_system_prompt = (
         "Given a chat history and the latest user question "
         "which might reference context in the chat history, "
