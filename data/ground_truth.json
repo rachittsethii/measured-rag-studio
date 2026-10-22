@@ -1,0 +1,28 @@
+[
+  {
+    "id": 1,
+    "question": "What is the mandatory logging retention period for audit logs?",
+    "ground_truth_answer": "Audit logs and security event logs must be retained for mandatory defined periods.",
+    "expected_source_chunk_ids": [
+      "Cybersecurity and Cyber Resilience Framework.pdf"
+    ]
+  },
+  {
+    "id": 2,
+    "question": "What are the key cyber resilience requirements defined in CSCRF?",
+    "ground_truth_answer": "Key requirements include governance, threat management, incident response, and continuous monitoring.",
+    "expected_source_chunk_ids": [
+      "Cybersecurity and Cyber Resilience Framework.pdf",
+      "Presentation - CSCRF.pdf"
+    ]
+  },
+  {
+    "id": 3,
+    "question": "What is the scope and objective of the CSCRF guidelines?",
+    "ground_truth_answer": "To establish enhanced cybersecurity and resilience standards across market infrastructure entities.",
+    "expected_source_chunk_ids": [
+      "Presentation - CSCRF.pdf",
+      "Cybersecurity and Cyber Resilience Framework.pdf"
+    ]
+  }
+]
