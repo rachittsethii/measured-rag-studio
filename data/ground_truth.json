@@ -1,28 +1,182 @@
 [
   {
     "id": 1,
-    "question": "What is the mandatory logging retention period for audit logs?",
-    "ground_truth_answer": "Audit logs and security event logs must be retained for mandatory defined periods.",
-    "expected_source_chunk_ids": [
-      "Cybersecurity and Cyber Resilience Framework.pdf"
-    ]
+    "question": "What are the key cyber resilience goals defined under CSCRF?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 165
   },
   {
     "id": 2,
-    "question": "What are the key cyber resilience requirements defined in CSCRF?",
-    "ground_truth_answer": "Key requirements include governance, threat management, incident response, and continuous monitoring.",
-    "expected_source_chunk_ids": [
-      "Cybersecurity and Cyber Resilience Framework.pdf",
-      "Presentation - CSCRF.pdf"
-    ]
+    "question": "What are the five core operational cybersecurity functions under the framework?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 3
   },
   {
     "id": 3,
-    "question": "What is the scope and objective of the CSCRF guidelines?",
-    "ground_truth_answer": "To establish enhanced cybersecurity and resilience standards across market infrastructure entities.",
-    "expected_source_chunk_ids": [
-      "Presentation - CSCRF.pdf",
-      "Cybersecurity and Cyber Resilience Framework.pdf"
-    ]
+    "question": "What is the primary role and governance responsibility of the IT Committee under CSCRF?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 12
+  },
+  {
+    "id": 4,
+    "question": "What entities are required to establish an IT Committee?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 13
+  },
+  {
+    "id": 5,
+    "question": "How often must the IT Committee review cybersecurity policies?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 14
+  },
+  {
+    "id": 6,
+    "question": "What are the mandatory Security Operations Centre (SOC) coverage options for REs?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 20
+  },
+  {
+    "id": 7,
+    "question": "What is the purpose of Market SOC (M-SOC) provided by Market Infrastructure Institutions?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 22
+  },
+  {
+    "id": 8,
+    "question": "How frequently must Vulnerability Assessment and Penetration Testing (VAPT) be conducted?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 35
+  },
+  {
+    "id": 9,
+    "question": "Within what timeline must critical vulnerabilities identified during VAPT be patched?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 38
+  },
+  {
+    "id": 10,
+    "question": "What is the Cyber Capability Index (CCI) maturity assessment model?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 42
+  },
+  {
+    "id": 11,
+    "question": "How often should Market Infrastructure Institutions (MIIs) conduct CCI assessments?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 44
+  },
+  {
+    "id": 12,
+    "question": "What are the multi-factor authentication (MFA) mandates for remote access?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 50
+  },
+  {
+    "id": 13,
+    "question": "What are the data encryption standards required for data at rest and data in transit?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 58
+  },
+  {
+    "id": 14,
+    "question": "What is the mandatory log retention period for system and audit logs?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 65
+  },
+  {
+    "id": 15,
+    "question": "What are the mandatory incident reporting timelines to SEBI and CERT-In?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 72
+  },
+  {
+    "id": 16,
+    "question": "What documentation is required following a major cyber incident?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 76
+  },
+  {
+    "id": 17,
+    "question": "What are the Recovery Time Objective (RTO) and Recovery Point Objective (RPO) mandates for critical systems?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 85
+  },
+  {
+    "id": 18,
+    "question": "How often must Disaster Recovery (DR) drills be executed by REs?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 89
+  },
+  {
+    "id": 19,
+    "question": "What are the key requirements for vendor and third-party risk management under CSCRF?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 95
+  },
+  {
+    "id": 20,
+    "question": "Is a Software Bill of Materials (SBOM) required for critical software applications?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 102
+  },
+  {
+    "id": 21,
+    "question": "What controls are mandated for managing Privileged Access Management (PAM)?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 110
+  },
+  {
+    "id": 22,
+    "question": "How often must user access rights and permissions be re-evaluated and reviewed?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 115
+  },
+  {
+    "id": 23,
+    "question": "What are the mandatory cyber security awareness training requirements for staff?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 124
+  },
+  {
+    "id": 24,
+    "question": "What are the data localization and sovereignty requirements under CSCRF?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 130
+  },
+  {
+    "id": 25,
+    "question": "What controls govern the use of cloud service providers (CSPs) by REs?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 138
+  },
+  {
+    "id": 26,
+    "question": "How are regulated entities categorized under the CSCRF threshold levels?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 145
+  },
+  {
+    "id": 27,
+    "question": "What constitutes a 'Critical System' under the SEBI guidelines?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 152
+  },
+  {
+    "id": 28,
+    "question": "What is the requirement for maintaining offline or immutable data backups?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 160
+  },
+  {
+    "id": 29,
+    "question": "Who must conduct the annual cybersecurity audit for regulated entities?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 175
+  },
+  {
+    "id": 30,
+    "question": "What are the submission timelines for quarterly and annual compliance reports?",
+    "expected_doc": "Cybersecurity and Cyber Resilience Framework",
+    "expected_page": 182
   }
 ]

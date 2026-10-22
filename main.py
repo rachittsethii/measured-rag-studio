@@ -1,49 +1,70 @@
 import json
+import os
 from src.loader import load_and_chunk_docs
 from src.retriever import build_retrievers
 from src.evaluate import evaluate_retrieval
-from src.chain import build_rag_chain
 
-def main():
-    print("=== STEP 1: Loading & Chunking Documents ===")
-    chunks = load_and_chunk_docs()
+def run_grid_experiment(chunk_size: int, chunk_overlap: int, k: int = 8, ground_truth_path: str = "data/ground_truth.json"):
+    print(f"\n=======================================================")
+    print(f"RUNNING EXPERIMENT: Chunk Size = {chunk_size} | Overlap = {chunk_overlap} | Top-k = {k}")
+    print(f"=======================================================")
+    
+    # 1. Load documents with targeted chunk configuration
+    chunks = load_and_chunk_docs(
+        doc_dir="data/raw_documents",
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap
+    )
+    print(f"Generated {len(chunks)} chunks.")
 
-    print("\n=== STEP 2: Building Dense & Hybrid Retrievers ===")
-    dense_retriever, hybrid_retriever = build_retrievers(chunks, k=8)
+    # 2. Build FAISS Dense Vector & BM25 Hybrid Retrievers
+    dense_retriever, hybrid_retriever = build_retrievers(chunks, k=k)
 
-    print("\n=== STEP 3: Evaluating Dense Vector Retriever ===")
-    dense_metrics = evaluate_retrieval(dense_retriever, k=8)
-    print(f"Dense Hit Rate@8: {dense_metrics['hit_rate_at_k']}% | MRR@8: {dense_metrics['mrr_at_k']}")
+    # 3. Evaluate both strategies on the 30-question ground truth dataset
+    print("Evaluating Dense FAISS Retriever...")
+    dense_metrics = evaluate_retrieval(dense_retriever, ground_truth_file=ground_truth_path, k=k)
 
-    print("\n=== STEP 4: Evaluating Hybrid Ensemble Retriever ===")
-    hybrid_metrics = evaluate_retrieval(hybrid_retriever, k=8, output_file="results.json")
-    print(f"Hybrid Hit Rate@8: {hybrid_metrics['hit_rate_at_k']}% | MRR@8: {hybrid_metrics['mrr_at_k']}")
+    print("Evaluating Hybrid Ensemble (Dense + BM25 RRF)...")
+    hybrid_metrics = evaluate_retrieval(hybrid_retriever, ground_truth_file=ground_truth_path, k=k)
 
-    # Save combined comparison summary to results.json
-    combined_results = {
-        "dense_vector_retriever": {
-            "hit_rate_at_8": dense_metrics['hit_rate_at_k'],
-            "mrr_at_8": dense_metrics['mrr_at_k']
+    return {
+        "chunk_size": chunk_size,
+        "chunk_overlap": chunk_overlap,
+        "total_chunks": len(chunks),
+        "dense": {
+            "hit_rate_at_k": dense_metrics["hit_rate_at_k"],
+            "mrr_at_k": dense_metrics["mrr_at_k"]
         },
-        "hybrid_ensemble_retriever": {
-            "hit_rate_at_8": hybrid_metrics['hit_rate_at_k'],
-            "mrr_at_8": hybrid_metrics['mrr_at_k'],
-            "details": hybrid_metrics['details']
+        "hybrid": {
+            "hit_rate_at_k": hybrid_metrics["hit_rate_at_k"],
+            "mrr_at_k": hybrid_metrics["mrr_at_k"]
         }
     }
 
-    with open("results.json", "w", encoding="utf-8") as f:
-        json.dump(combined_results, f, indent=2)
-    print("Combined comparison metrics exported to results.json\n")
+def main():
+    ground_truth_file = "data/ground_truth.json"
+    
+    if not os.path.exists(ground_truth_file):
+        print(f"Error: {ground_truth_file} does not exist.")
+        return
 
-    print("=== STEP 5: Testing RAG Chain with Citations ===")
-    rag_chain = build_rag_chain(hybrid_retriever)
+    # Configuration Grid Benchmarking
+    exp_500 = run_grid_experiment(chunk_size=500, chunk_overlap=100, k=8, ground_truth_path=ground_truth_file)
+    exp_1000 = run_grid_experiment(chunk_size=1000, chunk_overlap=150, k=8, ground_truth_path=ground_truth_file)
 
-    sample_question = "What are the key cyber resilience requirements defined in CSCRF?"
-    print(f"\nQuestion: {sample_question}\n")
+    benchmark_summary = {
+        "experiment_500_chars": exp_500,
+        "experiment_1000_chars": exp_1000
+    }
 
-    response = rag_chain.invoke(sample_question)
-    print(f"Answer with Citations:\n{response}\n")
+    # Export grid benchmark results to results.json
+    output_path = "results.json"
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(benchmark_summary, f, indent=2)
+
+    print("\n=======================================================")
+    print(f"GRID BENCHMARK COMPLETE! Results exported to `{output_path}`")
+    print("=======================================================")
 
 if __name__ == "__main__":
     main()

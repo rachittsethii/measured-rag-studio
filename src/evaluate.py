@@ -2,80 +2,74 @@ import json
 import os
 from typing import List, Dict, Any
 
-
 def evaluate_retrieval(
-    retriever,
+    retriever: Any,
     ground_truth_file: str = "data/ground_truth.json",
     k: int = 8,
     output_file: str = None
 ) -> Dict[str, Any]:
-    """Calculates Retrieval Hit Rate@k and MRR@k against ground truth dataset and optionally saves results to JSON."""
+    if not os.path.exists(ground_truth_file):
+        raise FileNotFoundError(f"Ground truth file not found at {ground_truth_file}")
+
     with open(ground_truth_file, "r", encoding="utf-8") as f:
         ground_truth = json.load(f)
 
     hits = 0
-    reciprocal_ranks = []
-    results_detail = []
+    mrr_sum = 0.0
+    details = []
 
     for item in ground_truth:
-        q_id = item["id"]
-        question = item["question"]
-        expected_sources = item.get("expected_source_chunk_ids", [])
+        query = item["question"]
+        target_doc = item.get("expected_doc", "").lower()
+        target_page = item.get("expected_page", None)
+        target_chunk_id = item.get("expected_chunk_id", None)
 
-        # Retrieve top k documents
-        retrieved_docs = retriever.invoke(question)
-        retrieved_chunk_ids = [
-            doc.metadata.get("chunk_id", "") for doc in retrieved_docs[:k]
-        ]
+        retrieved_docs = retriever.invoke(query)[:k]
+        
+        hit_found = False
+        rank_found = 0
 
-        is_hit = False
-        rank = 0
+        for rank, doc in enumerate(retrieved_docs, start=1):
+            doc_source = str(doc.metadata.get("source", "")).lower()
+            doc_page = doc.metadata.get("page", None)
+            chunk_id = doc.metadata.get("chunk_id", "")
 
-        # Match retrieved chunk against ground truth expected sources
-        for idx, r_cid in enumerate(retrieved_chunk_ids, start=1):
-            for e_src in expected_sources:
-                if e_src.lower() in r_cid.lower():
-                    if not is_hit:
-                        is_hit = True
-                        rank = idx
-                    break
-            if is_hit:
+            # Flexible evaluation logic: exact chunk ID match OR document + page match
+            is_page_match = (target_doc in doc_source) and (target_page is not None and doc_page == target_page)
+            is_chunk_match = (target_chunk_id is not None and chunk_id == target_chunk_id)
+
+            if is_chunk_match or is_page_match:
+                hit_found = True
+                rank_found = rank
                 break
 
-        if is_hit:
+        if hit_found:
             hits += 1
+            mrr_sum += 1.0 / rank_found
 
-        rr = 1.0 / rank if rank > 0 else 0.0
-        reciprocal_ranks.append(rr)
+        details.append({
+            "question": query,
+            "hit": hit_found,
+            "rank": rank_found if hit_found else None,
+            "retrieved_sources": [
+                f"{os.path.basename(doc.metadata.get('source', ''))}_p{doc.metadata.get('page', '')}" 
+                for doc in retrieved_docs
+            ]
+        })
 
-        results_detail.append(
-            {
-                "question_id": q_id,
-                "question": question,
-                "hit": is_hit,
-                "rank": rank,
-                "reciprocal_rank": rr,
-                "retrieved_chunks": retrieved_chunk_ids,
-            }
-        )
+    total_queries = len(ground_truth)
+    hit_rate = round((hits / total_queries) * 100, 2) if total_queries > 0 else 0.0
+    mrr = round(mrr_sum / total_queries, 3) if total_queries > 0 else 0.0
 
-    total_questions = len(ground_truth)
-    hit_rate = (hits / total_questions) * 100 if total_questions > 0 else 0.0
-    mrr = sum(reciprocal_ranks) / total_questions if total_questions > 0 else 0.0
-
-    metrics_summary = {
-        "hit_rate_at_k": round(hit_rate, 2),
-        "mrr_at_k": round(mrr, 3),
-        "k": k,
-        "total_questions": total_questions,
-        "details": results_detail,
+    summary = {
+        "total_queries": total_queries,
+        "hit_rate_at_k": hit_rate,
+        "mrr_at_k": mrr,
+        "details": details
     }
 
-    # Save to output file if specified
     if output_file:
-        os.makedirs(os.path.dirname(output_file), exist_ok=True) if os.path.dirname(output_file) else None
-        with open(output_file, "w", encoding="utf-8") as out_f:
-            json.dump(metrics_summary, out_f, indent=2)
-        print(f"Evaluation results successfully saved to: {output_file}")
+        with open(output_file, "w", encoding="utf-8") as f:
+            json.dump(summary, f, indent=2)
 
-    return metrics_summary
+    return summary

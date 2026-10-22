@@ -1,71 +1,28 @@
 {
-  "hit_rate_at_k": 33.33,
-  "mrr_at_k": 0.333,
-  "k": 12,
-  "total_questions": 3,
-  "details": [
-    {
-      "question_id": 1,
-      "question": "What is the mandatory logging retention period for audit logs?",
-      "hit": false,
-      "rank": 0,
-      "reciprocal_rank": 0.0,
-      "retrieved_chunks": [
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p203_c583",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p112_c349",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p169_c499",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p150_c448",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p165_c490",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p168_c497",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p144_c431",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p50_c153",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p51_c156",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p98_c306",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p50_c154",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p51_c157"
-      ]
+  "experiment_500_chars": {
+    "chunk_size": 500,
+    "chunk_overlap": 100,
+    "total_chunks": 1112,
+    "dense": {
+      "hit_rate_at_k": 3.33,
+      "mrr_at_k": 0.033
     },
-    {
-      "question_id": 2,
-      "question": "What are the key cyber resilience requirements defined in CSCRF?",
-      "hit": true,
-      "rank": 1,
-      "reciprocal_rank": 1.0,
-      "retrieved_chunks": [
-        "Presentation - CSCRF.pdf_p1_c682",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p88_c276",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p31_c100",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p165_c490",
-        "Presentation - CSCRF.pdf_p4_c686",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p81_c256",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p46_c140",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p14_c44",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p53_c160",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p13_c39",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p31_c101",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p150_c448"
-      ]
-    },
-    {
-      "question_id": 3,
-      "question": "What is the scope and objective of the CSCRF guidelines?",
-      "hit": false,
-      "rank": 0,
-      "reciprocal_rank": 0.0,
-      "retrieved_chunks": [
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p150_c448",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p14_c43",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p165_c490",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p53_c160",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p179_c519",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p14_c44",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p13_c40",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p3_c10",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p120_c372",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p6_c21",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p145_c433",
-        "Cybersecurity and Cyber Resilience Framework (CSCRF) for SEBI Regulated Entities (REs)_1724679211.pdf_p3_c11"
-      ]
+    "hybrid": {
+      "hit_rate_at_k": 13.33,
+      "mrr_at_k": 0.032
     }
-  ]
+  },
+  "experiment_1000_chars": {
+    "chunk_size": 1000,
+    "chunk_overlap": 150,
+    "total_chunks": 569,
+    "dense": {
+      "hit_rate_at_k": 6.67,
+      "mrr_at_k": 0.025
+    },
+    "hybrid": {
+      "hit_rate_at_k": 6.67,
+      "mrr_at_k": 0.019
+    }
+  }
 }
