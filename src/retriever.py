@@ -2,8 +2,13 @@ from typing import List
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.retrievers import BM25Retriever
-from langchain.retrievers import EnsembleRetriever
 from langchain_core.documents import Document
+
+# Safe import for EnsembleRetriever across different LangChain versions
+try:
+    from langchain.retrievers import EnsembleRetriever
+except ImportError:
+    from langchain_community.retrievers import EnsembleRetriever
 
 
 def build_hybrid_retriever(docs: List[Document], top_k: int = 12) -> EnsembleRetriever:
