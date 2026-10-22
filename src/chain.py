@@ -7,16 +7,16 @@ from langchain_core.output_parsers import StrOutputParser
 def build_conversational_rag_chain(retriever, model_name: str = "llama3.2:latest"):
     """
     Builds a RAG chain with chat history awareness and hybrid retrieval.
-    Routes requests through the active ngrok tunnel to local Ollama instance.
+    Routes requests through active ngrok tunnel to local Mac Ollama instance.
     """
-    # Active ngrok tunnel base URL targeting local Ollama port 11434
     llm = Ollama(
         base_url="https://embody-monotype-attribute.ngrok-free.dev",
         model=model_name,
-        temperature=0.0
+        temperature=0.0,
+        headers={"ngrok-skip-browser-warning": "true"}  # Bypasses ngrok 403 warning page
     )
 
-    # Prompt to rephrase follow-up questions into standalone queries using history
+    # Prompt to rephrase follow-up questions using chat history
     contextualize_q_system_prompt = (
         "Given a chat history and the latest user question "
         "which might reference context in the chat history, "
@@ -33,7 +33,6 @@ def build_conversational_rag_chain(retriever, model_name: str = "llama3.2:latest
         ]
     )
     
-    # Chain to produce rephrased standalone questions
     history_aware_retriever = (
         contextualize_q_prompt 
         | llm 
@@ -41,7 +40,6 @@ def build_conversational_rag_chain(retriever, model_name: str = "llama3.2:latest
         | retriever
     )
 
-    # Question-answering prompt template
     qa_system_prompt = (
         "You are an assistant for question-answering tasks. "
         "Use the following pieces of retrieved context to answer "
@@ -59,11 +57,9 @@ def build_conversational_rag_chain(retriever, model_name: str = "llama3.2:latest
         ]
     )
 
-    # Helper function to format retrieved documents into a single text block
     def format_docs(docs):
         return "\n\n".join(doc.page_content for doc in docs)
 
-    # Full conversational RAG pipeline execution sequence
     rag_chain = (
         RunnablePassthrough.assign(
             context=history_aware_retriever | format_docs
