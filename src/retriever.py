@@ -4,20 +4,25 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.retrievers import BM25Retriever
 from langchain_core.documents import Document
+from langchain_core.retrievers import BaseRetriever
+from langchain_core.callbacks import CallbackManagerForRetrieverRun
 
 
-class CustomEnsembleRetriever:
+class CustomEnsembleRetriever(BaseRetriever):
     """
     Standalone Hybrid Ensemble Retriever implementing Reciprocal Rank Fusion (RRF).
-    Combines Dense Vector Search (FAISS) and Sparse Keyword Search (BM25).
+    Inherits from BaseRetriever to integrate seamlessly with LangChain LCEL chains (| operator).
     """
-    def __init__(self, dense_retriever: Any, sparse_retriever: Any, c: int = 60):
-        self.dense_retriever = dense_retriever
-        self.sparse_retriever = sparse_retriever
-        self.retrievers = [dense_retriever, sparse_retriever]
-        self.c = c
+    dense_retriever: Any
+    sparse_retriever: Any
+    c: int = 60
 
-    def get_relevant_documents(self, query: str) -> List[Document]:
+    class Config:
+        arbitrary_types_allowed = True
+
+    def _get_relevant_documents(
+        self, query: str, *, run_manager: CallbackManagerForRetrieverRun = None
+    ) -> List[Document]:
         dense_docs = self.dense_retriever.get_relevant_documents(query)
         sparse_docs = self.sparse_retriever.get_relevant_documents(query)
         
@@ -41,9 +46,6 @@ class CustomEnsembleRetriever:
         sorted_results = sorted(doc_scores.values(), key=lambda x: x["score"], reverse=True)
         return [item["doc"] for item in sorted_results]
 
-    def invoke(self, query: str) -> List[Document]:
-        return self.get_relevant_documents(query)
-
 
 @st.cache_resource
 def get_embeddings_model():
@@ -64,7 +66,7 @@ def build_hybrid_retriever(docs: List[Document], top_k: int = 12) -> CustomEnsem
     vectorstore = FAISS.from_documents(docs, embeddings)
     faiss_retriever = vectorstore.as_retriever(search_kwargs={"k": top_k})
     
-    # 2. Sparse Keyword Store (BM25 with custom params)
+    # 2. Sparse Keyword Store (BM25 with tuned params)
     bm25_retriever = BM25Retriever.from_documents(
         docs, 
         k=top_k, 
