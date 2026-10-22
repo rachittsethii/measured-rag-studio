@@ -6,7 +6,7 @@ from langchain_core.output_parsers import StrOutputParser
 def build_conversational_rag_chain(retriever, model_name: str = "llama3.2:latest"):
     """Builds a RAG chain with chat history awareness."""
     llm = Ollama(
-    base_url=" https://embody-monotype-attribute.ngrok-free.dev ",
+    base_url="https://embody-monotype-attribute.ngrok-free.dev",
     model="llama3.2:latest",
     temperature=0.0
 )
