@@ -22,8 +22,6 @@ def calculate_metrics(retrieved_docs: List[Any], ground_truth_text: str) -> tupl
     
     for rank, doc in enumerate(retrieved_docs, start=1):
         norm_doc = normalize_text(doc.page_content)
-        
-        # Match if key ground truth exists inside chunk or vice versa
         if norm_gt in norm_doc or norm_doc in norm_gt:
             hit = 1.0
             reciprocal_rank = 1.0 / rank
@@ -34,7 +32,7 @@ def calculate_metrics(retrieved_docs: List[Any], ground_truth_text: str) -> tupl
 
 def run_benchmark_evaluation(ensemble_retriever, faiss_retriever, questions_json_path: str = "data/ground_truth.json") -> Dict[str, Any]:
     """
-    Runs evaluation benchmark across all 30 ground-truth questions.
+    Runs evaluation benchmark across all ground-truth questions.
     """
     with open(questions_json_path, 'r') as f:
         ground_truth_data = json.load(f)
@@ -47,14 +45,14 @@ def run_benchmark_evaluation(ensemble_retriever, faiss_retriever, questions_json
         question = item["question"]
         gt_context = item["ground_truth_context"]
         
-        # 1. Evaluate Dense FAISS
-        dense_docs = faiss_retriever.get_relevant_documents(question)
+        # 1. Evaluate Dense FAISS (using .invoke)
+        dense_docs = faiss_retriever.invoke(question)
         d_hit, d_mrr = calculate_metrics(dense_docs, gt_context)
         dense_hits.append(d_hit)
         dense_mrrs.append(d_mrr)
         
-        # 2. Evaluate Hybrid Ensemble
-        hybrid_docs = ensemble_retriever.get_relevant_documents(question)
+        # 2. Evaluate Hybrid Ensemble (using .invoke)
+        hybrid_docs = ensemble_retriever.invoke(question)
         h_hit, h_mrr = calculate_metrics(hybrid_docs, gt_context)
         hybrid_hits.append(h_hit)
         hybrid_mrrs.append(h_mrr)
@@ -76,7 +74,6 @@ def run_benchmark_evaluation(ensemble_retriever, faiss_retriever, questions_json
         "logs": detailed_logs
     }
     
-    # Save benchmark logs
     with open("results.json", "w") as f:
         json.dump(summary_results, f, indent=4)
         

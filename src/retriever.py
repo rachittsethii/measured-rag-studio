@@ -11,7 +11,7 @@ from langchain_core.callbacks import CallbackManagerForRetrieverRun
 class CustomEnsembleRetriever(BaseRetriever):
     """
     Standalone Hybrid Ensemble Retriever implementing Reciprocal Rank Fusion (RRF).
-    Inherits from BaseRetriever to integrate seamlessly with LangChain LCEL chains (| operator).
+    Inherits from BaseRetriever for full LangChain Runnable LCEL compatibility.
     """
     dense_retriever: Any
     sparse_retriever: Any
@@ -23,8 +23,9 @@ class CustomEnsembleRetriever(BaseRetriever):
     def _get_relevant_documents(
         self, query: str, *, run_manager: CallbackManagerForRetrieverRun = None
     ) -> List[Document]:
-        dense_docs = self.dense_retriever.get_relevant_documents(query)
-        sparse_docs = self.sparse_retriever.get_relevant_documents(query)
+        # Use .invoke() for modern LangChain retrievers
+        dense_docs = self.dense_retriever.invoke(query)
+        sparse_docs = self.sparse_retriever.invoke(query)
         
         doc_scores = {}
         
@@ -66,7 +67,7 @@ def build_hybrid_retriever(docs: List[Document], top_k: int = 12) -> CustomEnsem
     vectorstore = FAISS.from_documents(docs, embeddings)
     faiss_retriever = vectorstore.as_retriever(search_kwargs={"k": top_k})
     
-    # 2. Sparse Keyword Store (BM25 with tuned params)
+    # 2. Sparse Keyword Store (BM25)
     bm25_retriever = BM25Retriever.from_documents(
         docs, 
         k=top_k, 
