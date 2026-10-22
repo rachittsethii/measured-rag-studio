@@ -5,8 +5,11 @@ from langchain_core.output_parsers import StrOutputParser
 
 def build_conversational_rag_chain(retriever, model_name: str = "llama3.2:latest"):
     """Builds a RAG chain with chat history awareness."""
-    llm = Ollama(model=model_name, temperature=0.0)
-
+    llm = Ollama(
+    base_url=" https://embody-monotype-attribute.ngrok-free.dev ",
+    model="llama3.2:latest",
+    temperature=0.0
+)
     # Prompt to rephrase follow-up questions using chat history
     contextualize_q_system_prompt = (
         "Given a chat history and the latest user question "

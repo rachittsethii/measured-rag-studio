@@ -311,42 +311,47 @@ with tab1:
 # ---------------------------------------------------------
 with tab2:
     st.markdown("### 📊 Quantitative Retrieval Benchmarks")
-    st.caption("Compare dense vector search against the hybrid RRF ensemble using `data/ground_truth.json`.")
+    st.caption("Compare Dense Vector Search (FAISS) against Hybrid Ensemble Search (Dense + BM25) across all 30 ground-truth evaluation questions.")
 
     if st.button("Run Evaluation Benchmark"):
         if not st.session_state.get("indexed", False):
-            st.warning("Please index your documents first.")
+            st.warning("Please index your documents using the sidebar control panel first.")
         else:
-            with st.spinner("Evaluating retrieval pipelines..."):
-                dense = st.session_state["dense_retriever"]
-                hybrid = st.session_state["hybrid_retriever"]
+            with st.spinner("Evaluating retrieval pipelines across 30 test queries..."):
+                try:
+                    dense = st.session_state["dense_retriever"]
+                    hybrid = st.session_state["hybrid_retriever"]
 
-                dense_res = evaluate_retrieval(dense, ground_truth_file=GROUND_TRUTH_FILE, k=k_val)
-                hybrid_res = evaluate_retrieval(hybrid, ground_truth_file=GROUND_TRUTH_FILE, k=k_val, output_file="results.json")
+                    # Run evaluations against data/ground_truth.json
+                    dense_res = evaluate_retrieval(dense, ground_truth_file=GROUND_TRUTH_FILE, k=k_val)
+                    hybrid_res = evaluate_retrieval(hybrid, ground_truth_file=GROUND_TRUTH_FILE, k=k_val, output_file="results.json")
 
-                # Custom High-End Metric Display
-                st.markdown(f'''
-                <div class="card-grid">
-                    <div class="stat-card">
-                        <div class="stat-label">Dense Hit Rate@{k_val}</div>
-                        <div class="stat-value">{dense_res["hit_rate_at_k"]}%</div>
+                    # High-End Metric Display Grid
+                    st.markdown(f'''
+                    <div class="card-grid">
+                        <div class="stat-card">
+                            <div class="stat-label">Dense Hit Rate@{k_val}</div>
+                            <div class="stat-value">{dense_res["hit_rate_at_k"]}%</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Dense MRR@{k_val}</div>
+                            <div class="stat-value">{dense_res["mrr_at_k"]}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Hybrid Hit Rate@{k_val}</div>
+                            <div class="stat-value stat-accent">{hybrid_res["hit_rate_at_k"]}%</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Hybrid MRR@{k_val}</div>
+                            <div class="stat-value stat-accent">{hybrid_res["mrr_at_k"]}</div>
+                        </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Dense MRR@{k_val}</div>
-                        <div class="stat-value">{dense_res["mrr_at_k"]}</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Hybrid Hit Rate@{k_val}</div>
-                        <div class="stat-value stat-accent">{hybrid_res["hit_rate_at_k"]}%</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Hybrid MRR@{k_val}</div>
-                        <div class="stat-value stat-accent">{hybrid_res["mrr_at_k"]}</div>
-                    </div>
-                </div>
-                ''', unsafe_allow_html=True)
+                    ''', unsafe_allow_html=True)
 
-                st.success("Benchmark completed! Detailed performance log saved to `results.json`.")
+                    st.success(f"Benchmark completed across {hybrid_res['total_queries']} questions! Detailed log exported to results.json.")
 
-                with st.expander("🔎 Question-Level Detailed Log"):
-                    st.json(hybrid_res["details"])
+                    with st.expander(f"🔎 View All {hybrid_res['total_queries']} Question Results"):
+                        st.json(hybrid_res["details"])
+
+                except Exception as e:
+                    st.error(f"Error executing benchmark: {e}")
