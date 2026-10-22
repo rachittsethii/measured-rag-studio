@@ -4,11 +4,11 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.retrievers import BM25Retriever
 from langchain_core.documents import Document
 
-# Safe import for EnsembleRetriever across different LangChain versions
+# Correct direct import path for EnsembleRetriever
 try:
-    from langchain.retrievers import EnsembleRetriever
+    from langchain.retrievers.ensemble import EnsembleRetriever
 except ImportError:
-    from langchain_community.retrievers import EnsembleRetriever
+    from langchain.retrievers import EnsembleRetriever
 
 
 def build_hybrid_retriever(docs: List[Document], top_k: int = 12) -> EnsembleRetriever:
