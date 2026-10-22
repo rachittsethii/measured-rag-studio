@@ -60,14 +60,15 @@ def build_hybrid_retriever(docs: List[Document], top_k: int = 12) -> CustomEnsem
     """
     embeddings = get_embeddings_model()
     
-    # Dense Vector Store (FAISS)
+    # 1. Dense Vector Store (FAISS)
     vectorstore = FAISS.from_documents(docs, embeddings)
     faiss_retriever = vectorstore.as_retriever(search_kwargs={"k": top_k})
     
-    # Sparse Keyword Store (BM25)
-    bm25_retriever = BM25Retriever.from_documents(docs)
-    bm25_retriever.k1 = 1.2
-    bm25_retriever.b = 0.75
-    bm25_retriever.k = top_k
+    # 2. Sparse Keyword Store (BM25 with custom params)
+    bm25_retriever = BM25Retriever.from_documents(
+        docs, 
+        k=top_k, 
+        bm25_params={"k1": 1.2, "b": 0.75}
+    )
     
     return CustomEnsembleRetriever(dense_retriever=faiss_retriever, sparse_retriever=bm25_retriever)
