@@ -13,23 +13,39 @@ def normalize_text(text: str) -> str:
 
 def calculate_metrics(retrieved_docs: List[Any], ground_truth_text: str) -> tuple[float, float]:
     """
-    Calculates Hit Rate and Reciprocal Rank (MRR) using normalized substring matching.
+    Calculates Hit Rate and Reciprocal Rank (MRR) using robust token overlap.
     """
     norm_gt = normalize_text(ground_truth_text)
-    
-    hit = 0.0
-    reciprocal_rank = 0.0
-    
     if not norm_gt:
         return 0.0, 0.0
 
+    gt_words = set(norm_gt.split())
+    if not gt_words:
+        return 0.0, 0.0
+
+    hit = 0.0
+    reciprocal_rank = 0.0
+
     for rank, doc in enumerate(retrieved_docs, start=1):
         norm_doc = normalize_text(doc.page_content)
+        doc_words = set(norm_doc.split())
+        
+        # 1. Exact substring check
         if norm_gt in norm_doc or norm_doc in norm_gt:
             hit = 1.0
             reciprocal_rank = 1.0 / rank
             break
             
+        # 2. Token Overlap Fallback (if ground truth context is longer than single chunk)
+        overlap = gt_words.intersection(doc_words)
+        overlap_ratio = len(overlap) / len(gt_words) if len(gt_words) > 0 else 0
+        
+        # If >50% of the key ground truth words match the chunk, mark as hit
+        if overlap_ratio >= 0.50:
+            hit = 1.0
+            reciprocal_rank = 1.0 / rank
+            break
+
     return hit, reciprocal_rank
 
 
@@ -47,8 +63,8 @@ def run_benchmark_evaluation(ensemble_retriever, faiss_retriever, questions_json
     for item in ground_truth_data:
         question = item.get("question", "")
         
-        # Robust fallback for ground-truth context key names
-        gt_context = (
+        # Extract context across all possible keys/structures
+        raw_gt = (
             item.get("ground_truth_context") or 
             item.get("context") or 
             item.get("ground_truth") or 
@@ -56,6 +72,11 @@ def run_benchmark_evaluation(ensemble_retriever, faiss_retriever, questions_json
             item.get("expected_text") or 
             ""
         )
+        
+        if isinstance(raw_gt, list):
+            gt_context = " ".join([str(x) for x in raw_gt])
+        else:
+            gt_context = str(raw_gt)
         
         # 1. Evaluate Dense FAISS
         dense_docs = faiss_retriever.invoke(question)
