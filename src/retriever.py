@@ -10,12 +10,12 @@ from langchain_core.callbacks import CallbackManagerForRetrieverRun
 
 class CustomEnsembleRetriever(BaseRetriever):
     """
-    Standalone Hybrid Ensemble Retriever implementing Reciprocal Rank Fusion (RRF).
-    Inherits from BaseRetriever for full LangChain Runnable LCEL compatibility.
+    Tuned Hybrid Ensemble Retriever implementing Reciprocal Rank Fusion (RRF).
+    Uses c = 20 for sharp MRR rank boosting in domain document search.
     """
     dense_retriever: Any
     sparse_retriever: Any
-    c: int = 60
+    c: int = 20
 
     class Config:
         arbitrary_types_allowed = True
@@ -23,7 +23,6 @@ class CustomEnsembleRetriever(BaseRetriever):
     def _get_relevant_documents(
         self, query: str, *, run_manager: CallbackManagerForRetrieverRun = None
     ) -> List[Document]:
-        # Use .invoke() for modern LangChain retrievers
         dense_docs = self.dense_retriever.invoke(query)
         sparse_docs = self.sparse_retriever.invoke(query)
         
@@ -57,7 +56,7 @@ def get_embeddings_model():
     )
 
 
-def build_hybrid_retriever(docs: List[Document], top_k: int = 12) -> CustomEnsembleRetriever:
+def build_hybrid_retriever(docs: List[Document], top_k: int = 20) -> CustomEnsembleRetriever:
     """
     Builds a Hybrid Ensemble Retriever using FAISS and BM25.
     """
@@ -67,11 +66,11 @@ def build_hybrid_retriever(docs: List[Document], top_k: int = 12) -> CustomEnsem
     vectorstore = FAISS.from_documents(docs, embeddings)
     faiss_retriever = vectorstore.as_retriever(search_kwargs={"k": top_k})
     
-    # 2. Sparse Keyword Store (BM25)
+    # 2. Sparse Keyword Store (BM25 with k1=1.5, b=0.75)
     bm25_retriever = BM25Retriever.from_documents(
         docs, 
         k=top_k, 
-        bm25_params={"k1": 1.2, "b": 0.75}
+        bm25_params={"k1": 1.5, "b": 0.75}
     )
     
-    return CustomEnsembleRetriever(dense_retriever=faiss_retriever, sparse_retriever=bm25_retriever)
+    return CustomEnsembleRetriever(dense_retriever=faiss_retriever, sparse_retriever=bm25_retriever, c=20)
