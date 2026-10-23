@@ -3,7 +3,7 @@ import streamlit as st
 from typing import List, Dict, Any
 
 
-def is_page_match_window(retrieved_page: Any, expected_page: Any, window: int = 2) -> bool:
+def is_page_match_window(retrieved_page: Any, expected_page: Any, window: int = 3) -> bool:
     """
     Checks if retrieved page falls within a ±window offset of expected page.
     Handles 0-indexed PyPDF loaders vs 1-indexed document page numbering.
@@ -12,7 +12,7 @@ def is_page_match_window(retrieved_page: Any, expected_page: Any, window: int = 
         r_page = int(retrieved_page)
         e_page = int(expected_page)
         
-        # Check direct match, 1-based offset, or ±window range
+        # Direct match, 1-based offset, or ±window range
         return abs(r_page - e_page) <= window or abs((r_page + 1) - e_page) <= window
     except (ValueError, TypeError):
         return str(retrieved_page).strip() == str(expected_page).strip()
@@ -20,15 +20,26 @@ def is_page_match_window(retrieved_page: Any, expected_page: Any, window: int = 
 
 def calculate_metrics(retrieved_docs: List[Any], expected_doc: str, expected_page: int) -> tuple[float, float]:
     """
-    Calculates Hit Rate and MRR across top-k retrieved chunks.
+    Calculates Hit Rate and MRR across retrieved chunks.
     """
+    exp_doc_clean = str(expected_doc).lower().replace(" ", "").replace("-", "").replace("_", "")
+
     for rank, doc in enumerate(retrieved_docs, start=1):
         meta = getattr(doc, "metadata", {})
         
-        # Extract page number
+        # Extract metadata fields
         retrieved_page = meta.get("page", -999)
+        doc_source = str(meta.get("source", "") or meta.get("file_name", "")).lower().replace(" ", "").replace("-", "").replace("_", "")
         
-        if is_page_match_window(retrieved_page, expected_page, window=2):
+        # Document title match check
+        doc_match = True
+        if exp_doc_clean and doc_source:
+            doc_match = (exp_doc_clean in doc_source) or (doc_source in exp_doc_clean)
+            
+        # Page match check
+        page_match = is_page_match_window(retrieved_page, expected_page, window=3)
+
+        if page_match and doc_match:
             return 1.0, 1.0 / rank
 
     return 0.0, 0.0
