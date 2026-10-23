@@ -13,14 +13,47 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Target directory for uploaded files
+# Paths for persistent storage
+CHAT_HISTORY_FILE = "chat_history.json"
 UPLOAD_DIR = "data/raw_documents"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+# --- Helper Functions for Persistent Chat ---
+def load_saved_chat():
+    """Loads chat messages from disk so history persists across refreshes."""
+    if os.path.exists(CHAT_HISTORY_FILE):
+        try:
+            with open(CHAT_HISTORY_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            return []
+    return []
+
+def save_chat_history(messages):
+    """Saves chat messages to disk."""
+    try:
+        with open(CHAT_HISTORY_FILE, "w") as f:
+            json.dump(messages, f, indent=4)
+    except Exception as e:
+        st.error(f"Failed to save chat history: {e}")
+
+# Initialize chat messages from persistent storage
+if "messages" not in st.session_state:
+    st.session_state.messages = load_saved_chat()
+
+# Custom UI Styling
+st.markdown("""
+<style>
+    .main { background-color: #0e1117; }
+    div[data-testid="stMetricValue"] { font-size: 2.2rem !important; font-weight: 700; }
+    div[data-testid="stMetricLabel"] { font-size: 0.9rem !important; text-transform: uppercase; color: #8b949e; }
+</style>
+""", unsafe_allow_html=True)
 
 st.title("RAG Intelligence Studio")
 st.caption("Deterministic document search & benchmarked RRF ensemble powered by Ollama")
 
-# Sidebar - Configuration & Document Management
+# Sidebar - Pipeline Configuration & Workspace Management
 with st.sidebar:
     st.header("Pipeline Configuration")
     st.caption("Manage document corpus & hybrid search parameters.")
@@ -32,7 +65,6 @@ with st.sidebar:
         accept_multiple_files=True
     )
     
-    # Save newly uploaded files to local disk
     if uploaded_pdfs:
         for uploaded_file in uploaded_pdfs:
             save_path = os.path.join(UPLOAD_DIR, uploaded_file.name)
@@ -43,7 +75,6 @@ with st.sidebar:
     st.markdown("---")
     st.subheader("Document Corpus")
     
-    # Automatically scan data/raw_documents folder for all PDFs
     pdf_files = [
         os.path.join(UPLOAD_DIR, f) 
         for f in os.listdir(UPLOAD_DIR) 
@@ -58,11 +89,11 @@ with st.sidebar:
         st.info("No PDF documents found in corpus.")
         
     st.markdown("---")
-    top_k = st.slider("Top-k Depth", min_value=5, max_value=25, value=15)
+    top_k = st.slider("Top-k Depth", min_value=5, max_value=25, value=22)
     
     if st.button("⚡ Build Vector & BM25 Index", use_container_width=True):
         if not pdf_files:
-            st.error("Please upload at least one PDF or ensure data/raw_documents/ contains PDFs.")
+            st.error("Please upload at least one PDF or place files in data/raw_documents/.")
         else:
             with st.spinner("Processing documents & building hybrid index..."):
                 docs = load_and_chunk_documents(pdf_files)
@@ -76,18 +107,26 @@ with st.sidebar:
                 st.session_state.rag_chain = build_conversational_rag_chain(st.session_state.ensemble_retriever)
                 st.success("Index Built Successfully!")
 
+    st.markdown("---")
+    # Manual Reset Button for Persistent Chat
+    if st.button("🗑️ Clear Chat History", use_container_width=True):
+        st.session_state.messages = []
+        if os.path.exists(CHAT_HISTORY_FILE):
+            os.remove(CHAT_HISTORY_FILE)
+        st.rerun()
+
 # Main Workspace Tabs
 tab1, tab2 = st.tabs(["💬 Conversational Workspace", "📊 Retrieval Benchmark & Analytics"])
 
 with tab1:
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-
+    # Render saved conversation messages
     for msg in st.session_state.messages:
         st.chat_message(msg["role"]).write(msg["content"])
 
     if user_query := st.chat_input("Ask a question about your indexed documents..."):
+        # Append and persist user message
         st.session_state.messages.append({"role": "user", "content": user_query})
+        save_chat_history(st.session_state.messages)
         st.chat_message("user").write(user_query)
 
         if "rag_chain" in st.session_state:
@@ -96,7 +135,9 @@ with tab1:
                     "input": user_query,
                     "chat_history": []
                 })
+                # Append and persist assistant message
                 st.session_state.messages.append({"role": "assistant", "content": response})
+                save_chat_history(st.session_state.messages)
                 st.chat_message("assistant").write(response)
             except Exception as e:
                 st.error(f"Execution Error: {e}")
