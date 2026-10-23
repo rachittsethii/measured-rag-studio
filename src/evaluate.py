@@ -1,61 +1,56 @@
 import json
-import re
-import difflib
 import streamlit as st
 from typing import List, Dict, Any
 
 
-def clean_str(val: Any) -> str:
-    """Safely converts any JSON element or list into a plain text string."""
-    if val is None:
+def normalize_meta_str(text: Any) -> str:
+    """Standardizes document titles for clean matching."""
+    if not text:
         return ""
-    if isinstance(val, list):
-        return " ".join([clean_str(x) for x in val])
-    if isinstance(val, dict):
-        return " ".join([clean_str(v) for v in val.values()])
-    return str(val)
+    return str(text).lower().replace(" ", "").replace("_", "").replace("-", "")
 
 
-def normalize_text(text: str) -> str:
-    """Removes special characters, extra whitespace, and converts to lowercase."""
-    text = clean_str(text).lower()
-    text = re.sub(r'\s+', ' ', text)
-    text = re.sub(r'[^\w\s]', '', text)
-    return text.strip()
-
-
-def calculate_metrics(retrieved_docs: List[Any], ground_truth_text: str) -> tuple[float, float]:
+def is_page_match(doc_metadata: dict, expected_page: int) -> bool:
     """
-    Calculates Hit Rate and MRR using multi-tier matching:
-    1. Substring Match
-    2. Token Set Overlap (>= 20% key words)
-    3. Fuzzy Sequence Similarity (>= 0.35 ratio)
+    Checks if retrieved document metadata page matches expected ground truth page.
+    Handles both 0-indexed and 1-indexed PyPDF page numbers.
     """
-    norm_gt = normalize_text(ground_truth_text)
-    if not norm_gt:
-        return 0.0, 0.0
+    if "page" not in doc_metadata:
+        return False
+    
+    retrieved_page = doc_metadata["page"]
+    
+    # Check exact match, 1-based index conversion, or string matching
+    try:
+        page_num = int(retrieved_page)
+        exp_num = int(expected_page)
+        return page_num == exp_num or page_num + 1 == exp_num
+    except (ValueError, TypeError):
+        return str(retrieved_page).strip() == str(expected_page).strip()
 
-    gt_words = set(norm_gt.split())
+
+def calculate_metrics(retrieved_docs: List[Any], expected_doc: str, expected_page: int) -> tuple[float, float]:
+    """
+    Calculates Hit Rate and MRR by checking if the expected page and document 
+    are present in the top-k retrieved chunks.
+    """
+    norm_exp_doc = normalize_meta_str(expected_doc)
 
     for rank, doc in enumerate(retrieved_docs, start=1):
-        norm_doc = normalize_text(doc.page_content)
-        if not norm_doc:
-            continue
+        meta = getattr(doc, "metadata", {})
+        
+        # Check source document matching (if metadata source is available)
+        doc_source = meta.get("source", "") or meta.get("file_name", "")
+        norm_source = normalize_meta_str(doc_source)
+        
+        doc_matches = True
+        if norm_exp_doc and norm_source:
+            doc_matches = (norm_exp_doc in norm_source) or (norm_source in norm_exp_doc)
 
-        # Tier 1: Substring Match
-        if norm_gt in norm_doc or norm_doc in norm_gt:
-            return 1.0, 1.0 / rank
+        # Check page number matching
+        page_matches = is_page_match(meta, expected_page)
 
-        # Tier 2: Token Overlap Match
-        doc_words = set(norm_doc.split())
-        if gt_words and doc_words:
-            overlap = gt_words.intersection(doc_words)
-            if len(gt_words) > 0 and (len(overlap) / len(gt_words)) >= 0.20:
-                return 1.0, 1.0 / rank
-
-        # Tier 3: Fuzzy Ratio
-        similarity = difflib.SequenceMatcher(None, norm_gt[:200], norm_doc[:200]).ratio()
-        if similarity >= 0.35:
+        if page_matches and doc_matches:
             return 1.0, 1.0 / rank
 
     return 0.0, 0.0
@@ -63,7 +58,7 @@ def calculate_metrics(retrieved_docs: List[Any], ground_truth_text: str) -> tupl
 
 def run_benchmark_evaluation(ensemble_retriever, faiss_retriever, questions_json_path: str = "data/ground_truth.json") -> Dict[str, Any]:
     """
-    Runs evaluation benchmark across all ground-truth questions and prints debug diagnostics.
+    Runs evaluation benchmark across all ground-truth questions based on document metadata.
     """
     with open(questions_json_path, 'r') as f:
         ground_truth_data = json.load(f)
@@ -73,32 +68,17 @@ def run_benchmark_evaluation(ensemble_retriever, faiss_retriever, questions_json
     detailed_logs = []
 
     for idx, item in enumerate(ground_truth_data):
-        # Broad JSON key extraction
-        question = clean_str(item.get("question") or item.get("query") or item.get("q"))
-        gt_context = (
-            item.get("ground_truth_context") or
-            item.get("ground_truth") or
-            item.get("context") or
-            item.get("answer") or
-            item.get("expected_text") or
-            ""
-        )
-        gt_context_str = clean_str(gt_context)
+        question = item.get("question", "")
+        expected_doc = item.get("expected_doc", "")
+        expected_page = item.get("expected_page", 0)
 
-        # 1. Retrieve Docs
+        # 1. Retrieve Chunks
         dense_docs = faiss_retriever.invoke(question)
         hybrid_docs = ensemble_retriever.invoke(question)
 
-        # Print Debug Info for Question #1 on screen
-        if idx == 0:
-            st.info(f"🔍 **Debug Question #1:** {question}")
-            st.info(f"📄 **Expected Context:** {gt_context_str[:150]}...")
-            if hybrid_docs:
-                st.info(f"⚡ **First Retrieved Chunk:** {hybrid_docs[0].page_content[:150]}...")
-
-        # 2. Calculate Metrics
-        d_hit, d_mrr = calculate_metrics(dense_docs, gt_context_str)
-        h_hit, h_mrr = calculate_metrics(hybrid_docs, gt_context_str)
+        # 2. Evaluate Metadata Page Matches
+        d_hit, d_mrr = calculate_metrics(dense_docs, expected_doc, expected_page)
+        h_hit, h_mrr = calculate_metrics(hybrid_docs, expected_doc, expected_page)
 
         dense_hits.append(d_hit)
         dense_mrrs.append(d_mrr)
@@ -106,7 +86,9 @@ def run_benchmark_evaluation(ensemble_retriever, faiss_retriever, questions_json
         hybrid_mrrs.append(h_mrr)
 
         detailed_logs.append({
+            "id": item.get("id"),
             "question": question,
+            "expected_page": expected_page,
             "dense_hit": bool(d_hit),
             "hybrid_hit": bool(h_hit),
             "dense_mrr": d_mrr,
