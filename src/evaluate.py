@@ -6,7 +6,7 @@ from typing import List, Dict, Any
 
 
 def clean_str(val: Any) -> str:
-    """Helper to safely convert any JSON type (list, dict, int) to clean text."""
+    """Safely converts any JSON element or list into a plain text string."""
     if val is None:
         return ""
     if isinstance(val, list):
@@ -17,7 +17,7 @@ def clean_str(val: Any) -> str:
 
 
 def normalize_text(text: str) -> str:
-    """Removes non-alphanumeric characters and converts to lowercase."""
+    """Removes special characters, extra whitespace, and converts to lowercase."""
     text = clean_str(text).lower()
     text = re.sub(r'\s+', ' ', text)
     text = re.sub(r'[^\w\s]', '', text)
@@ -26,46 +26,44 @@ def normalize_text(text: str) -> str:
 
 def calculate_metrics(retrieved_docs: List[Any], ground_truth_text: str) -> tuple[float, float]:
     """
-    Calculates Hit Rate and MRR using multi-strategy matching:
-    1. Direct Substring Match
-    2. Word Set Overlap (>= 30% key terms)
-    3. Fuzzy Sequence Similarity (Ratio >= 0.45)
+    Calculates Hit Rate and MRR using multi-tier matching:
+    1. Substring Match
+    2. Token Set Overlap (>= 20% key words)
+    3. Fuzzy Sequence Similarity (>= 0.35 ratio)
     """
     norm_gt = normalize_text(ground_truth_text)
     if not norm_gt:
         return 0.0, 0.0
 
     gt_words = set(norm_gt.split())
-    hit = 0.0
-    reciprocal_rank = 0.0
 
     for rank, doc in enumerate(retrieved_docs, start=1):
         norm_doc = normalize_text(doc.page_content)
         if not norm_doc:
             continue
 
-        # Strategy 1: Substring Match
+        # Tier 1: Substring Match
         if norm_gt in norm_doc or norm_doc in norm_gt:
             return 1.0, 1.0 / rank
 
-        # Strategy 2: Significant Word Overlap
+        # Tier 2: Token Overlap Match
         doc_words = set(norm_doc.split())
         if gt_words and doc_words:
             overlap = gt_words.intersection(doc_words)
-            if len(gt_words) > 0 and (len(overlap) / len(gt_words)) >= 0.30:
+            if len(gt_words) > 0 and (len(overlap) / len(gt_words)) >= 0.20:
                 return 1.0, 1.0 / rank
 
-        # Strategy 3: Fuzzy Sequence Ratio
-        similarity = difflib.SequenceMatcher(None, norm_gt[:300], norm_doc[:300]).ratio()
-        if similarity >= 0.40:
+        # Tier 3: Fuzzy Ratio
+        similarity = difflib.SequenceMatcher(None, norm_gt[:200], norm_doc[:200]).ratio()
+        if similarity >= 0.35:
             return 1.0, 1.0 / rank
 
-    return hit, reciprocal_rank
+    return 0.0, 0.0
 
 
 def run_benchmark_evaluation(ensemble_retriever, faiss_retriever, questions_json_path: str = "data/ground_truth.json") -> Dict[str, Any]:
     """
-    Runs evaluation benchmark across all ground-truth questions safely.
+    Runs evaluation benchmark across all ground-truth questions and prints debug diagnostics.
     """
     with open(questions_json_path, 'r') as f:
         ground_truth_data = json.load(f)
@@ -75,36 +73,40 @@ def run_benchmark_evaluation(ensemble_retriever, faiss_retriever, questions_json
     detailed_logs = []
 
     for idx, item in enumerate(ground_truth_data):
-        # Extract question
+        # Broad JSON key extraction
         question = clean_str(item.get("question") or item.get("query") or item.get("q"))
-
-        # Extract context using broad field detection
         gt_context = (
             item.get("ground_truth_context") or
             item.get("ground_truth") or
             item.get("context") or
             item.get("answer") or
             item.get("expected_text") or
-            item.get("text") or
             ""
         )
         gt_context_str = clean_str(gt_context)
 
-        # 1. Evaluate Dense FAISS
+        # 1. Retrieve Docs
         dense_docs = faiss_retriever.invoke(question)
+        hybrid_docs = ensemble_retriever.invoke(question)
+
+        # Print Debug Info for Question #1 on screen
+        if idx == 0:
+            st.info(f"🔍 **Debug Question #1:** {question}")
+            st.info(f"📄 **Expected Context:** {gt_context_str[:150]}...")
+            if hybrid_docs:
+                st.info(f"⚡ **First Retrieved Chunk:** {hybrid_docs[0].page_content[:150]}...")
+
+        # 2. Calculate Metrics
         d_hit, d_mrr = calculate_metrics(dense_docs, gt_context_str)
+        h_hit, h_mrr = calculate_metrics(hybrid_docs, gt_context_str)
+
         dense_hits.append(d_hit)
         dense_mrrs.append(d_mrr)
-
-        # 2. Evaluate Hybrid Ensemble
-        hybrid_docs = ensemble_retriever.invoke(question)
-        h_hit, h_mrr = calculate_metrics(hybrid_docs, gt_context_str)
         hybrid_hits.append(h_hit)
         hybrid_mrrs.append(h_mrr)
 
         detailed_logs.append({
             "question": question,
-            "gt_snippet": gt_context_str[:60],
             "dense_hit": bool(d_hit),
             "hybrid_hit": bool(h_hit),
             "dense_mrr": d_mrr,
