@@ -5,24 +5,23 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 
 
-def load_and_chunk_documents(pdf_paths: List[str]) -> List[Document]:
+def load_and_chunk_documents(file_paths: List[str]) -> List[Document]:
     """
-    Loads PDF documents and splits them into granular chunks optimized for 
-    high-precision retrieval benchmarks.
+    Loads PDF documents and splits them into granular chunks preserving page metadata.
     """
     all_docs = []
     
-    for path in pdf_paths:
+    for path in file_paths:
         if os.path.exists(path):
             loader = PyPDFLoader(path)
-            all_docs.extend(loader.load())
+            loaded_pages = loader.load()
+            all_docs.extend(loaded_pages)
             
-    # Tighter chunking strategy for precise regulatory and policy Q&A matching
+    # Tighter chunking for optimal hybrid vector & keyword lookup
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=400,
-        chunk_overlap=80,
-        separators=["\n\n", "\n", ".", " ", ""]
+        chunk_size=500,
+        chunk_overlap=125,
+        separators=["\n\n", "\n", " ", ""]
     )
     
-    chunked_docs = text_splitter.split_documents(all_docs)
-    return chunked_docs
+    return text_splitter.split_documents(all_docs)
